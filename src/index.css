@@ -1,0 +1,158 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg-app: #050505;
+  --bg-card: #121212;
+  --bg-card-hover: #1a1a1a;
+  
+  --accent-primary: #D4FF00; /* Acid Green */
+  --accent-glow: rgba(212, 255, 0, 0.4);
+  
+  --text-main: #ffffff;
+  --text-muted: #a3a3a3;
+  
+  --border-color: #262626;
+  
+  --font-main: 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; /* Prevent selection for better app feel */
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+  overflow-x: hidden;
+  overscroll-behavior-y: none; /* Prevent pull to refresh web behavior */
+}
+
+/* Mobile & Typography */
+h1, h2, h3 { line-height: 1.1; }
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+/* Utilities */
+.container {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.text-accent { color: var(--accent-primary); }
+
+.fullscreen-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  width: 100%;
+}
+
+/* New: Fast Log Swipe Button */
+.swipe-track {
+  width: 100%;
+  height: 64px;
+  background: var(--bg-card);
+  border-radius: 32px;
+  border: 1px solid var(--border-color);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: auto; /* Push to bottom */
+  overflow: hidden;
+}
+
+.swipe-text {
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.swipe-handle {
+  width: 56px;
+  height: 56px;
+  background: var(--accent-primary);
+  border-radius: 50%;
+  position: absolute;
+  left: 4px; /* Init position */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 15px var(--accent-glow);
+  cursor: grab;
+  z-index: 10;
+}
+
+.swipe-handle:active { cursor: grabbing; }
+
+/* Anabolic Particles Container */
+#particles-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Streak Badge */
+.streak-badge {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.875rem;
+  backdrop-filter: blur(5px);
+}
+
+/* Buttons (Legacy support for other views) */
+.btn-main-action {
+  width: 240px; /* Slightly smaller for faster feel */
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #1a1a1a, #0a0a0a);
+  border: 2px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.btn-main-action:active { transform: scale(0.92); }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.animate-spin-slow { animation: spin 8s linear infinite; }
