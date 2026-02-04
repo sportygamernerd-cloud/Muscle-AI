@@ -5,16 +5,18 @@ export class VisionService {
   private static instance: VisionService;
   private genAI: GoogleGenerativeAI;
   private model: any;
+  private apiKey: string | undefined;
 
   constructor() {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("API Key Missing");
+    this.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!this.apiKey) {
+      console.error("API Key Missing. Check Vercel Environment Variables.");
     }
-    this.genAI = new GoogleGenerativeAI(apiKey || "");
+    // Initialize even if empty to allow validation later
+    this.genAI = new GoogleGenerativeAI(this.apiKey || "dummy_key");
     this.model = this.genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
-      generationConfig: { responseMimeType: "application/json" } // Force JSON mode
+      generationConfig: { responseMimeType: "application/json" }
     });
   }
   
@@ -26,12 +28,15 @@ export class VisionService {
   }
 
   async analyzeImage(file: File): Promise<AnalysisPayload> {
+    if (!this.apiKey) {
+      throw new Error("API_KEY_MISSING");
+    }
+
     const start = Date.now();
     
     try {
       const base64Data = await this.fileToGenerativePart(file);
 
-      // UPDATED PROMPT: More robust estimation
       const prompt = `
         Rôle : Tu es un Coach Nutritionniste expert en Bodybuilding.
         Tâche : Analyser cette photo de repas pour un pratiquant de musculation.
@@ -43,6 +48,7 @@ export class VisionService {
         2. Estime le poids visible (sois généreux sur l'estimation pour la prise de masse).
         3. Calcule les PROTÉINES totales.
         4. Donne un conseil motivationnel court ("Bonne source", "Post-training validé", etc).
+        5. Assure-toi que le JSON est valide.
         
         Format JSON ATTENDU (Strict) :
         {
@@ -63,14 +69,26 @@ export class VisionService {
       const response = await result.response;
       const text = response.text();
       
-      const data = JSON.parse(text);
+      // Sanitization: Remove Markdown code blocks if present
+      const cleanJson = text.replace(/```json|```/g, '').trim();
+      
+      let data;
+      try {
+        data = JSON.parse(cleanJson);
+      } catch (e) {
+        console.error("JSON Parse Error", cleanJson);
+        throw new Error("INVALID_JSON_RESPONSE");
+      }
 
       console.log(`Gemini Analysis took ${Date.now() - start}ms`, data);
       return data;
 
-    } catch (e) {
+    } catch (e: any) {
       console.error("Gemini Vision Error", e);
-      throw new Error("VISION_FAILED");
+      // Propagate specific errors
+      if (e.message === "API_KEY_MISSING") throw e;
+      if (e.message === "INVALID_JSON_RESPONSE") throw e;
+      throw new Error("VISION_FAILED: " + (e.message || "Unknown Error"));
     }
   }
 
