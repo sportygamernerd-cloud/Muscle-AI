@@ -31,27 +31,30 @@ export class VisionService {
     try {
       const base64Data = await this.fileToGenerativePart(file);
 
-      // UPDATED PROMPT SYSTEM
+      // UPDATED PROMPT: More robust estimation
       const prompt = `
-        Rôle : Tu es un expert en nutrition sportive spécialiste.
-        Objectif : Analyser l'image d'un repas, estimer les quantités et fournir un bilan nutritionnel précis.
+        Rôle : Tu es un Coach Nutritionniste expert en Bodybuilding.
+        Tâche : Analyser cette photo de repas pour un pratiquant de musculation.
         
-        Instructions strictes :
-        1. Identifie l'aliment principal.
-        2. Estime le poids total.
-        3. Calcule UNIQUEMENT les Protéines pour l'affichage principal, et donne un conseil.
+        Si l'image est floue ou l'aliment difficile à reconnaître : FAIS TA MEILLEURE ESTIMATION PROBABLE. Ne réponds jamais que tu ne sais pas. Si ça ressemble à du poulet, dis "Poulet".
         
-        Réponds exclusivement avec ce schéma JSON exact :
+        Instructions :
+        1. Identifie l'aliment principal (sois concis).
+        2. Estime le poids visible (sois généreux sur l'estimation pour la prise de masse).
+        3. Calcule les PROTÉINES totales.
+        4. Donne un conseil motivationnel court ("Bonne source", "Post-training validé", etc).
+        
+        Format JSON ATTENDU (Strict) :
         {
-          "aliment": "Nom de l'aliment principal",
+          "aliment": "Nom de l'aliment",
           "confiance_score": 0.9,
           "poids_estime": 150,
           "volume_estime_cm3": 0,
           "proteines_calculees": 30,
-          "marge_erreur": 5,
+          "marge_erreur": 10,
           "details_analyse": {
-             "reference_detectee": "Conseil court (ex: Excellent post-legday)",
-             "methode_calcul": "Gemini Expert"
+             "reference_detectee": "Conseil motivationnel",
+             "methode_calcul": "Vision AI"
           }
         }
       `;
@@ -62,12 +65,11 @@ export class VisionService {
       
       const data = JSON.parse(text);
 
-      console.log(`Gemini Analysis took ${Date.now() - start}ms`);
+      console.log(`Gemini Analysis took ${Date.now() - start}ms`, data);
       return data;
 
     } catch (e) {
       console.error("Gemini Vision Error", e);
-      // Fallback simulates error or returns manual prompt
       throw new Error("VISION_FAILED");
     }
   }
