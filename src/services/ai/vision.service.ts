@@ -8,11 +8,18 @@ export class VisionService {
   private apiKey: string | undefined;
 
   constructor() {
+    // DEBUG: Check all possible env var locations
+    // Vite exposes env vars on import.meta.env
     this.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    
+    console.log("VisionService Init. API Key present:", !!this.apiKey, 
+                "Key Length:", this.apiKey?.length, 
+                "Key Start:", this.apiKey?.substring(0, 4) + "****");
+
     if (!this.apiKey) {
-      console.error("API Key Missing. Check Vercel Environment Variables.");
+      console.error("CRITICAL: API Key is undefined in constructor. Check Vercel Env Vars format.");
     }
-    // Initialize even if empty to allow validation later
+
     this.genAI = new GoogleGenerativeAI(this.apiKey || "dummy_key");
     this.model = this.genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
@@ -28,8 +35,14 @@ export class VisionService {
   }
 
   async analyzeImage(file: File): Promise<AnalysisPayload> {
+    // Runtime check
     if (!this.apiKey) {
-      throw new Error("API_KEY_MISSING");
+      // Try late binding just in case
+        this.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!this.apiKey) {
+            console.error("API Key Missing at Runtime Call");
+            throw new Error("API_KEY_MISSING");
+        }
     }
 
     const start = Date.now();
@@ -69,7 +82,6 @@ export class VisionService {
       const response = await result.response;
       const text = response.text();
       
-      // Sanitization: Remove Markdown code blocks if present
       const cleanJson = text.replace(/```json|```/g, '').trim();
       
       let data;
@@ -84,10 +96,7 @@ export class VisionService {
       return data;
 
     } catch (e: any) {
-      console.error("Gemini Vision Error", e);
-      // Propagate specific errors
-      if (e.message === "API_KEY_MISSING") throw e;
-      if (e.message === "INVALID_JSON_RESPONSE") throw e;
+      console.error("Gemini Vision Error Details:", e);
       throw new Error("VISION_FAILED: " + (e.message || "Unknown Error"));
     }
   }
