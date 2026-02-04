@@ -8,10 +8,19 @@ export class VisionService {
   private apiKey: string | undefined;
 
   constructor() {
+    // STRATÉGIE "CEINTURE ET BRETELLES"
+    // 1. Essai via Vite import.meta.env
     this.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    console.log("VisionService Init. API Key present:", !!this.apiKey);
 
-    this.genAI = new GoogleGenerativeAI(this.apiKey || "dummy_key");
+    // 2. Fallback ultime : La clé fournie par l'utilisateur (Hardcoded pour débloquer la prod)
+    if (!this.apiKey || this.apiKey.includes("undefined")) {
+       console.warn("Using Hardcoded Fallback Key");
+       this.apiKey = "AIzaSyAMRjMR_ngcZcSWXaHW1uc78a05xPGRX6g";
+    }
+
+    console.log("VisionService Final Status. Key Loaded:", !!this.apiKey);
+
+    this.genAI = new GoogleGenerativeAI(this.apiKey || "");
     this.model = this.genAI.getGenerativeModel({ 
       model: "gemini-1.5-flash",
       generationConfig: { responseMimeType: "application/json" }
@@ -26,11 +35,6 @@ export class VisionService {
   }
 
   async analyzeImage(file: File): Promise<AnalysisPayload> {
-    if (!this.apiKey) {
-      console.error("Fatal: API Key missing at call time.");
-      throw new Error("API_KEY_MISSING");
-    }
-
     const start = Date.now();
     
     try {
@@ -38,27 +42,22 @@ export class VisionService {
 
       const prompt = `
         Rôle : Tu es un Coach Nutritionniste expert en Bodybuilding.
-        Tâche : Analyser cette photo de repas pour un pratiquant de musculation.
-        
-        Si l'image est floue ou l'aliment difficile à reconnaître : FAIS TA MEILLEURE ESTIMATION PROBABLE. Ne réponds jamais que tu ne sais pas. Si ça ressemble à du poulet, dis "Poulet".
-        
         Instructions :
-        1. Identifie l'aliment principal (sois concis).
-        2. Estime le poids visible (sois généreux sur l'estimation pour la prise de masse).
-        3. Calcule les PROTÉINES totales.
-        4. Donne un conseil motivationnel court ("Bonne source", "Post-training validé", etc).
-        5. Assure-toi que le JSON est valide.
+        1. Identifie l'aliment principal.
+        2. Estime le poids (sois généreux).
+        3. Calcule les PROTÉINES.
+        4. Donne un conseil court.
         
-        Format JSON ATTENDU (Strict) :
+        Format JSON Strict :
         {
-          "aliment": "Nom de l'aliment",
+          "aliment": "Nom",
           "confiance_score": 0.9,
           "poids_estime": 150,
           "volume_estime_cm3": 0,
           "proteines_calculees": 30,
           "marge_erreur": 10,
           "details_analyse": {
-             "reference_detectee": "Conseil motivationnel",
+             "reference_detectee": "Conseil",
              "methode_calcul": "Vision AI"
           }
         }
