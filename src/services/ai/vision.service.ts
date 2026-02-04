@@ -1,19 +1,23 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { type AnalysisPayload } from '../../types/nutrition';
-
-// Mock DB moved to service
-const CIQUAL_LITE: Record<string, { density: number; proteinPer100g: number }> = {
-  "blanc_poulet_cuit": { density: 1.05, proteinPer100g: 31 },
-  "steak_hache_5mg": { density: 0.95, proteinPer100g: 25 },
-  "oeuf_dur": { density: 1.03, proteinPer100g: 13 },
-  "riz_blanc_cuit": { density: 0.85, proteinPer100g: 2.7 },
-  "saumon_cuit": { density: 1.01, proteinPer100g: 22 },
-  "whey_shaker": { density: 1.1, proteinPer100g: 80 }
-};
 
 export class VisionService {
   private static instance: VisionService;
+  private genAI: GoogleGenerativeAI;
+  private model: any;
+
+  constructor() {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("API Key Missing");
+    }
+    this.genAI = new GoogleGenerativeAI(apiKey || "");
+    this.model = this.genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: { responseMimeType: "application/json" } // Force JSON mode
+    });
+  }
   
-  // Singleton pattern for Token Management & Caching
   static getInstance(): VisionService {
     if (!VisionService.instance) {
       VisionService.instance = new VisionService();
@@ -21,43 +25,67 @@ export class VisionService {
     return VisionService.instance;
   }
 
-  async analyzeImage(_file: File): Promise<AnalysisPayload> {
-    // 1. Simulate Latency (Optimized)
-    await new Promise(resolve => setTimeout(resolve, 800));
+  async analyzeImage(file: File): Promise<AnalysisPayload> {
+    const start = Date.now();
+    
+    try {
+      const base64Data = await this.fileToGenerativePart(file);
 
-    // 2. Simulate Recognition Logic
-    // Random chance of "Unknown Food" to test Error Handling (10%)
-    const isUnknown = Math.random() < 0.1;
+      // UPDATED PROMPT SYSTEM
+      const prompt = `
+        Rôle : Tu es un expert en nutrition sportive spécialiste.
+        Objectif : Analyser l'image d'un repas, estimer les quantités et fournir un bilan nutritionnel précis.
+        
+        Instructions strictes :
+        1. Identifie l'aliment principal.
+        2. Estime le poids total.
+        3. Calcule UNIQUEMENT les Protéines pour l'affichage principal, et donne un conseil.
+        
+        Réponds exclusivement avec ce schéma JSON exact :
+        {
+          "aliment": "Nom de l'aliment principal",
+          "confiance_score": 0.9,
+          "poids_estime": 150,
+          "volume_estime_cm3": 0,
+          "proteines_calculees": 30,
+          "marge_erreur": 5,
+          "details_analyse": {
+             "reference_detectee": "Conseil court (ex: Excellent post-legday)",
+             "methode_calcul": "Gemini Expert"
+          }
+        }
+      `;
 
-    if (isUnknown) {
-      throw new Error("ALIMENT_NON_IDENTIFIE");
+      const result = await this.model.generateContent([prompt, base64Data]);
+      const response = await result.response;
+      const text = response.text();
+      
+      const data = JSON.parse(text);
+
+      console.log(`Gemini Analysis took ${Date.now() - start}ms`);
+      return data;
+
+    } catch (e) {
+      console.error("Gemini Vision Error", e);
+      // Fallback simulates error or returns manual prompt
+      throw new Error("VISION_FAILED");
     }
-
-    // 3. Normal Analysis Flow
-    const keys = Object.keys(CIQUAL_LITE);
-    const detectedKey = keys[Math.floor(Math.random() * keys.length)];
-    const dbData = CIQUAL_LITE[detectedKey];
-
-    const volumeCm3 = Math.floor(Math.random() * (300 - 100 + 1)) + 100;
-    const poidsGrammes = Math.round(volumeCm3 * dbData.density);
-    const proteines = Math.round((poidsGrammes * dbData.proteinPer100g) / 100);
-    const errorMargin = Math.floor(Math.random() * (12 - 4 + 1)) + 4; // Optimized margins
-
-    return {
-      aliment: this.formatLabel(detectedKey),
-      confiance_score: 0.92 + (Math.random() * 0.07),
-      volume_estime_cm3: volumeCm3,
-      poids_estime: poidsGrammes,
-      proteines_calculees: proteines,
-      marge_erreur: errorMargin,
-      details_analyse: {
-        reference_detectee: "Assiette Standard (26cm)",
-        methode_calcul: "Deep-Volatric v2"
-      }
-    };
   }
 
-  private formatLabel(key: string): string {
-    return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  private async fileToGenerativePart(file: File): Promise<{ inlineData: { data: string; mimeType: string } }> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = (reader.result as string).split(',')[1];
+        resolve({
+          inlineData: {
+            data: base64String,
+            mimeType: file.type,
+          },
+        });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 }

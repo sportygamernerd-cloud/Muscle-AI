@@ -3,6 +3,7 @@ import { ScanView } from './components/ScanView';
 import { ResultView } from './components/ResultView';
 import { ValidationView } from './components/ValidationView';
 import { ManualSearch } from './components/manual/ManualSearch';
+import { HistoryView } from './components/HistoryView';
 import { AnimatePresence, motion } from 'framer-motion';
 import { VisionService } from './services/ai/vision.service';
 import { HistoryService } from './services/storage/history.service';
@@ -11,16 +12,17 @@ import { AlertCircle } from 'lucide-react';
 import { type AnalysisResult } from './engine/AnalysisEngine';
 
 function App() {
-  const [step, setStep] = useState<'scan' | 'processing' | 'result' | 'validated' | 'manual' | 'error'>('scan');
+  const [step, setStep] = useState<'scan' | 'processing' | 'result' | 'validated' | 'manual' | 'error' | 'history'>('scan');
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [analysisData, setAnalysisData] = useState<AnalysisPayload | null>(null);
-  const [streak, setStreak] = useState(12);
-  // errorMsg removed as strictly unused currently, handled by UI state
+  const [streak, setStreak] = useState(0);
 
-  // Hydrate Streak (Mocking persistent streak logic)
+  // Hydrate Streak Logic
   useEffect(() => {
-     // Check last log date in real app
-  }, []);
+     // Ideally fetch streak from service
+     const logs = HistoryService.getLogs();
+     setStreak(logs.length > 0 ? 12 + logs.length : 12); // Mock logic just for visual
+  }, [step]); // Re-calc on step change
 
   const handleScan = async (file: File) => {
     if (navigator.vibrate) navigator.vibrate(20);
@@ -30,45 +32,38 @@ function App() {
     setStep('processing');
 
     try {
-      // Use Scalable Service
       const result = await VisionService.getInstance().analyzeImage(file);
-      
       if (navigator.vibrate) navigator.vibrate(50);
       setAnalysisData(result);
       setStep('result');
     } catch (e) {
-      console.warn("AI Failure, fallback needed", e);
+      console.warn("AI Failure", e);
       setStep('error');
     }
   };
 
   const handleManualSelect = (food: {name: string, protein: number, weight: number}) => {
-    // Convert manual selection to AnalysisPayload format
     setAnalysisData({
       aliment: food.name,
       confiance_score: 1.0,
       poids_estime: food.weight,
-      volume_estime_cm3: food.weight, // approx
+      volume_estime_cm3: food.weight, 
       proteines_calculees: food.protein,
       marge_erreur: 0,
       details_analyse: { reference_detectee: "Saisie Manuelle", methode_calcul: "User Input" }
     });
-    // Use a placeholder image or keep the scanned one if available
     if (!imageSrc) setImageSrc('https://via.placeholder.com/400x300/000000/FFFFFF?text=MANUAL'); 
     setStep('result');
   };
 
   const handleValidate = async () => {
     if (analysisData) {
-      // Secure Storage
       await HistoryService.logEntry({
          foodName: analysisData.aliment,
          protein: analysisData.proteines_calculees,
          weight: analysisData.poids_estime,
          method: step === 'manual' ? 'MANUAL_SEARCH' : 'AI_SCAN'
       });
-      
-      setStreak(s => s + 1);
       setStep('validated');
     }
   };
@@ -79,11 +74,7 @@ function App() {
     setAnalysisData(null);
   };
 
-  // Adapter for Legacy ResultView Props
-  const legacyData: AnalysisResult | null = analysisData ? {
-      ...analysisData,
-      // Ensure type compatibility if any mismatch
-  } : null;
+  const legacyData: AnalysisResult | null = analysisData ? { ...analysisData } : null;
 
   return (
     <>
@@ -98,7 +89,23 @@ function App() {
               exit={{ opacity: 0, scale: 0.98 }}
               style={{ width: '100%', height: '100%' }}
             >
-              <ScanView onScan={handleScan} streak={streak} />
+              <ScanView 
+                onScan={handleScan} 
+                streak={streak} 
+                onHistory={() => setStep('history')} 
+              />
+            </motion.div>
+          )}
+
+          {step === 'history' && (
+            <motion.div 
+              key="history"
+              initial={{ opacity: 0, x: 100 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 100 }}
+              style={{ width: '100%', height: '100%' }}
+            >
+              <HistoryView onBack={() => setStep('scan')} />
             </motion.div>
           )}
 
@@ -132,12 +139,7 @@ function App() {
                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>OUPS.</h2>
                <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>L'IA n'a pas pu identifier l'aliment avec certitude.</p>
                
-               <button 
-                  className="btn-cta" 
-                  onClick={() => setStep('manual')}
-               >
-                 RECHERCHE MANUELLE
-               </button>
+               <button className="btn-cta" onClick={() => setStep('manual')}>RECHERCHE MANUELLE</button>
                <button onClick={reset} style={{ marginTop: '1.5rem', color: 'var(--text-muted)' }}>Réessayer le scan</button>
             </motion.div>
           )}
@@ -163,12 +165,7 @@ function App() {
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               style={{ width: '100%', height: '100%' }}
             >
-              <ResultView 
-                imageSrc={imageSrc!} 
-                data={legacyData} 
-                onValidate={handleValidate} 
-                onRetake={reset}
-              />
+              <ResultView imageSrc={imageSrc!} data={legacyData} onValidate={handleValidate} onRetake={reset} />
             </motion.div>
           )}
 
