@@ -8,21 +8,20 @@ export class VisionService {
   private apiKey: string | undefined;
 
   constructor() {
-    // STRATÉGIE "CEINTURE ET BRETELLES"
-    // 1. Essai via Vite import.meta.env
     this.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-    // 2. Fallback ultime : La clé fournie par l'utilisateur (Hardcoded pour débloquer la prod)
+    // Hardcoded Fallback for Production Safety
     if (!this.apiKey || this.apiKey.includes("undefined")) {
-       console.warn("Using Hardcoded Fallback Key");
        this.apiKey = "AIzaSyAMRjMR_ngcZcSWXaHW1uc78a05xPGRX6g";
     }
 
-    console.log("VisionService Final Status. Key Loaded:", !!this.apiKey);
+    console.log("VisionService Init. Key Loaded:", !!this.apiKey ? "YES" : "NO");
 
     this.genAI = new GoogleGenerativeAI(this.apiKey || "");
+    
+    // MODEL UPDATE: Using specific version to avoid 404s on aliases
     this.model = this.genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
+      model: "gemini-1.5-flash-001", 
       generationConfig: { responseMimeType: "application/json" }
     });
   }
@@ -41,23 +40,25 @@ export class VisionService {
       const base64Data = await this.fileToGenerativePart(file);
 
       const prompt = `
-        Rôle : Tu es un Coach Nutritionniste expert en Bodybuilding.
-        Instructions :
-        1. Identifie l'aliment principal.
-        2. Estime le poids (sois généreux).
-        3. Calcule les PROTÉINES.
-        4. Donne un conseil court.
+        You are an expert Bodybuilding Nutritionist.
+        Analyze this food image.
         
-        Format JSON Strict :
+        Guidance:
+        1. Identify the main food item.
+        2. Estimate the weight (generous estimate for bulk).
+        3. Calculate PROTEIN.
+        4. Give a short motivation tip.
+        
+        Strict JSON Response:
         {
-          "aliment": "Nom",
+          "aliment": "Name",
           "confiance_score": 0.9,
           "poids_estime": 150,
           "volume_estime_cm3": 0,
           "proteines_calculees": 30,
           "marge_erreur": 10,
           "details_analyse": {
-             "reference_detectee": "Conseil",
+             "reference_detectee": "Motivation Tip",
              "methode_calcul": "Vision AI"
           }
         }
@@ -70,12 +71,12 @@ export class VisionService {
       const cleanJson = text.replace(/```json|```/g, '').trim();
       const data = JSON.parse(cleanJson);
 
-      console.log(`Gemini Analysis took ${Date.now() - start}ms`, data);
+      console.log(`Msg: Success. Took ${Date.now() - start}ms`, data);
       return data;
 
     } catch (e: any) {
-      console.error("Gemini Vision Error:", e);
-      throw new Error("VISION_FAILED: " + (e.message || "Unknown"));
+      console.error("Gemini Vision Error Details:", e);
+      throw new Error("VISION_FAILED: " + (e.message || "Unknown error"));
     }
   }
 
