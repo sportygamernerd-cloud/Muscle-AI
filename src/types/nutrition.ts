@@ -24,5 +24,5 @@ export interface FoodLogEntry {
   foodName: string;
   protein: number;
   weight: number;
-  method: 'AI_SCAN' | 'MANUAL_SEARCH';
+  method: 'AI_SCAN' | 'MANUAL_SEARCH' | 'QUICK_LOG'; // Added QUICK_LOG
 }

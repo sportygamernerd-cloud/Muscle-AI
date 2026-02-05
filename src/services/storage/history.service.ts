@@ -11,7 +11,7 @@ export class HistoryService {
         ...entry,
         id: crypto.randomUUID(),
         timestamp: Date.now(),
-        userIdHash: 'ANONYMOUS_USER_HASH' // Placeholder for privacy layer
+        userIdHash: 'ANONYMOUS_USER_HASH'
       };
 
       logs.push(newEntry);
